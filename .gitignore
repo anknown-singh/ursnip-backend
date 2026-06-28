@@ -1,0 +1,30 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+
+# Environment files (contain secrets)
+.env
+.env.local
+.env.production
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Proptest regression files
+**/proptest-regressions/
+
+# Logs
+*.log
+
+# Database dumps
+*.sql.gz
+*.dump
