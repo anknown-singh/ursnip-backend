@@ -1,0 +1,15 @@
+Verify Your New Email Address
+==============================
+
+Hi,
+
+You requested to change your email address. Please verify this new address by visiting the link below:
+
+{{ verify_link }}
+
+This link expires in 24 hours.
+
+If you didn't request this change, you can safely ignore this email.
+
+---
+© {{ app_name }}. All rights reserved.
