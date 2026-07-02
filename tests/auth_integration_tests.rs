@@ -75,6 +75,8 @@ fn test_config() -> Arc<AppConfig> {
         ws_max_connections: 100,
         ai_max_concurrent_requests: 10,
         shutdown_timeout_secs: 5,
+        billing_success_url: None,
+        billing_cancel_url: None,
     })
 }
 
@@ -180,12 +182,15 @@ async fn test_register_login_refresh_logout_flow() {
     assert!(!reg_response.access_token.is_empty(), "Access token should be issued");
     assert!(!reg_response.refresh_token.is_empty(), "Refresh token should be issued");
     assert_eq!(reg_response.user.email, email);
+    assert!(!reg_response.user.workspace_id.is_nil(), "workspace_id should be present in register response");
 
     // 2. Login
     let login_response = login_user(&service, &email, password).await;
     assert!(!login_response.access_token.is_empty());
     assert!(!login_response.refresh_token.is_empty());
     assert_eq!(login_response.user.email, email);
+    assert!(!login_response.user.workspace_id.is_nil(), "workspace_id should be present in login response");
+    assert_eq!(login_response.user.workspace_id, reg_response.user.workspace_id, "workspace_id should be consistent between register and login");
     // Refresh token from login should be different from registration
     assert_ne!(login_response.refresh_token, reg_response.refresh_token);
 

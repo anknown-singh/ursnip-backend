@@ -21,6 +21,7 @@ use crate::auth::service::{
     RefreshRequest, RegisterRequest, RegisterViaInviteRequest, ResetPasswordRequest, SessionInfo,
     UpdateProfileRequest, VerifyEmailChangeRequest,
 };
+use crate::config::AppConfig;
 use crate::errors::AppError;
 use crate::middleware::auth_extractor::AccessTokenClaims;
 use crate::models::common::ClientType;
@@ -129,6 +130,17 @@ pub async fn update_profile_handler(
     Ok(Json(response))
 }
 
+/// GET /auth/profile
+///
+/// Return the authenticated user's full profile.
+pub async fn get_profile_handler(
+    Extension(auth_service): Extension<Arc<AuthService>>,
+    Extension(claims): Extension<AccessTokenClaims>,
+) -> Result<Json<ProfileResponse>, AppError> {
+    let response = auth_service.get_profile(claims.sub).await?;
+    Ok(Json(response))
+}
+
 /// POST /auth/change-email
 ///
 /// Initiate an email change by sending a verification link to the new address.
@@ -221,12 +233,21 @@ pub async fn oauth_authorize_handler(
 /// GET /auth/oauth/:provider/callback?code=...&error=...&state=...
 ///
 /// Handle the OAuth callback from the provider. Exchanges the authorization code
-/// for tokens, upserts the user, and returns a token pair.
+/// for tokens, upserts the user, and redirects to the frontend callback page
+/// with tokens in URL params (for web clients) or returns JSON (for native clients).
 pub async fn oauth_callback_handler(
     Extension(oauth_service): Extension<Arc<OAuthService>>,
+    Extension(config): Extension<Arc<AppConfig>>,
     Path(provider): Path<String>,
     Query(params): Query<OAuthCallbackParams>,
-) -> Result<Json<AuthResponse>, AppError> {
+) -> Result<impl IntoResponse, AppError> {
+    tracing::info!(
+        provider = %provider,
+        has_code = params.code.is_some(),
+        has_error = params.error.is_some(),
+        "OAuth callback received"
+    );
+
     let provider = OAuthProvider::from_str(&provider).ok_or(AppError::InvalidRequestBody)?;
 
     // Determine client type from state parameter or default to web
@@ -236,6 +257,19 @@ pub async fn oauth_callback_handler(
     };
 
     let code = params.code.as_deref().unwrap_or("");
+    let frontend_url = &config.frontend_url;
+
+    // Handle error from provider — redirect to frontend with error param
+    if let Some(ref error) = params.error {
+        if client_type == ClientType::Web {
+            let redirect_url = format!(
+                "{}/callback?error={}",
+                frontend_url,
+                urlencoding::encode(error)
+            );
+            return Ok(Redirect::temporary(&redirect_url).into_response());
+        }
+    }
 
     let response = oauth_service
         .oauth_callback(
@@ -245,9 +279,44 @@ pub async fn oauth_callback_handler(
             params.error.as_deref(),
             None, // No authenticated user for public callback
         )
-        .await?;
+        .await;
 
-    Ok(Json(response))
+    match (response, &client_type) {
+        (Ok(auth_response), ClientType::Web) => {
+            // Redirect to frontend callback page with tokens in URL params
+            tracing::info!(email = %auth_response.user.email, "OAuth success, redirecting to frontend");
+            let user_json = serde_json::to_string(&auth_response.user)
+                .unwrap_or_default();
+            let redirect_url = format!(
+                "{}/callback?access_token={}&refresh_token={}&user={}",
+                frontend_url,
+                urlencoding::encode(&auth_response.access_token),
+                urlencoding::encode(&auth_response.refresh_token),
+                urlencoding::encode(&user_json),
+            );
+            Ok(Redirect::temporary(&redirect_url).into_response())
+        }
+        (Ok(auth_response), ClientType::Native) => {
+            // Native clients get JSON response
+            Ok(Json(auth_response).into_response())
+        }
+        (Err(ref e), ClientType::Web) => {
+            // Redirect to frontend with error
+            tracing::error!(error = ?e, "OAuth callback failed, redirecting with error");
+            let error_code = match &e {
+                AppError::OAuthAuthorizationDenied => "OAUTH_AUTHORIZATION_DENIED",
+                AppError::AccountLinkingConflict => "ACCOUNT_LINKING_CONFLICT",
+                _ => "OAUTH_ERROR",
+            };
+            let redirect_url = format!(
+                "{}/callback?error={}",
+                frontend_url,
+                urlencoding::encode(error_code)
+            );
+            Ok(Redirect::temporary(&redirect_url).into_response())
+        }
+        (Err(e), _) => Err(e),
+    }
 }
 
 // ─── Admin Invite Handlers ──────────────────────────────────────────────────────

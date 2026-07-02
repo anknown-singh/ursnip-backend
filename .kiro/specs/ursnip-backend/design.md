@@ -1576,3 +1576,62 @@ SIGTERM or SIGINT received
 *For any* password reset token, it SHALL be usable exactly once. After use, presenting the same token SHALL return 422 `INVALID_RESET_TOKEN`. Generating a new reset token SHALL invalidate all previous tokens for that user.
 
 **Validates: Requirements 1.25, 1.28, 1.29**
+
+
+---
+
+## Addendum: Frontend Integration Fixes
+
+### Updated Auth Response
+
+The `AuthResponse` returned by `POST /auth/register` and `POST /auth/login` SHALL include the user's individual workspace ID:
+
+```rust
+pub struct AuthResponse {
+    pub access_token: String,
+    pub refresh_token: String,
+    pub user: UserInfo,
+}
+
+pub struct UserInfo {
+    pub id: Uuid,
+    pub email: String,
+    pub role: Role,
+    pub referral_code: String,
+    pub workspace_id: Uuid,  // NEW: individual workspace ID
+}
+```
+
+### Updated RegisterRequest
+
+The `POST /auth/register` endpoint accepts optional name fields:
+
+```rust
+pub struct RegisterRequest {
+    pub email: String,
+    pub password: String,
+    pub client_type: ClientType,
+    pub referral_code: Option<String>,
+    pub first_name: Option<String>,   // NEW
+    pub last_name: Option<String>,    // NEW
+}
+```
+
+### Updated CheckoutRequest
+
+The `POST /subscriptions/checkout` endpoint accepts optional redirect URLs:
+
+```rust
+pub struct CheckoutRequest {
+    pub workspace_id: Uuid,
+    pub tier: String,
+    pub billing_cycle_months: i32,
+    pub coupon_code: Option<String>,
+    pub discount_id: Option<Uuid>,
+    pub country_code: Option<String>,
+    pub success_url: Option<String>,   // NEW: redirect after successful payment
+    pub cancel_url: Option<String>,    // NEW: redirect if user cancels checkout
+}
+```
+
+These URLs are passed to the billing provider session creation. If not provided, the billing provider uses its default configured redirect.

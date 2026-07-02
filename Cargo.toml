@@ -57,6 +57,9 @@ ipnet = "2"
 # Environment
 dotenvy = "0.15"
 
+# URL encoding
+urlencoding = "2"
+
 [dev-dependencies]
 proptest = "1"
 sha2 = "0.10"

@@ -90,9 +90,20 @@ Register a new user account.
   "email": "user@example.com",
   "password": "minimum8chars",
   "client_type": "native",
-  "referral_code": "ABC12345"
+  "referral_code": "ABC12345",
+  "first_name": "John",
+  "last_name": "Doe"
 }
 ```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| email | string | yes | User email address |
+| password | string | yes | Minimum 8 characters |
+| client_type | string | yes | `native` or `web` |
+| referral_code | string | no | Referral code from another user |
+| first_name | string | no | User's first name |
+| last_name | string | no | User's last name |
 
 **Response 201:**
 ```json
@@ -619,9 +630,22 @@ Compute invoice and get checkout URL.
   "tier": "pro",
   "billing_cycle_months": 12,
   "coupon_code": "SAVE20",
-  "country_code": "US"
+  "country_code": "US",
+  "success_url": "https://app.example.com/billing/success",
+  "cancel_url": "https://app.example.com/billing/cancel"
 }
 ```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| workspace_id | UUID | Yes | Workspace to upgrade |
+| tier | string | Yes | Target tier (`pro` or `teams`) |
+| billing_cycle_months | integer | Yes | Billing period (minimum 12) |
+| coupon_code | string | No | Coupon code for discount (cannot combine with discount_id) |
+| discount_id | UUID | No | Direct discount ID (cannot combine with coupon_code) |
+| country_code | string | No | ISO country code for tax calculation |
+| success_url | string | No | URL to redirect after successful payment. Falls back to `BILLING_SUCCESS_URL` env var if not provided. |
+| cancel_url | string | No | URL to redirect if user cancels payment. Falls back to `BILLING_CANCEL_URL` env var if not provided. |
 
 **Response 200:**
 ```json

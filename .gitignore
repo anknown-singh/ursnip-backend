@@ -28,3 +28,6 @@
 # Database dumps
 *.sql.gz
 *.dump
+
+# OAuth secrets
+google.oAuth.secret.json

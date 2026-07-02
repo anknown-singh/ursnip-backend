@@ -42,6 +42,8 @@ pub struct CheckoutRequestBody {
     pub coupon_code: Option<String>,
     pub discount_id: Option<Uuid>,
     pub country_code: Option<String>,
+    pub success_url: Option<String>,
+    pub cancel_url: Option<String>,
 }
 
 /// Query parameters for GET /subscriptions/current.
@@ -84,6 +86,8 @@ pub async fn checkout_handler(
         coupon_code: body.coupon_code,
         discount_id: body.discount_id,
         country_code: body.country_code,
+        success_url: body.success_url,
+        cancel_url: body.cancel_url,
     };
 
     let response = service.checkout(request).await?;

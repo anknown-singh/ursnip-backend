@@ -379,6 +379,17 @@ impl OAuthService {
             _ => Tier::Free,
         };
 
+        // Look up the user's individual workspace ID
+        let workspace_id: Uuid = sqlx::query_scalar(
+            r#"
+            SELECT id FROM workspaces WHERE owner_id = $1 AND type = 'individual' LIMIT 1
+            "#,
+        )
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|_| AppError::InternalError)?;
+
         // Generate access token JWT
         let claims = AccessTokenClaims {
             sub: user_id,
@@ -401,6 +412,7 @@ impl OAuthService {
                 email: user_email,
                 role: user_role,
                 referral_code: user_referral_code,
+                workspace_id,
             },
         })
     }

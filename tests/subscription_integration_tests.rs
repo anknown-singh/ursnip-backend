@@ -171,6 +171,8 @@ struct CheckoutRequest {
     coupon_code: Option<String>,
     discount_id: Option<Uuid>,
     country_code: Option<String>,
+    success_url: Option<String>,
+    cancel_url: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -700,6 +702,8 @@ fn test_upgrade_from_free_to_pro_creates_correct_invoice() {
         coupon_code: None,
         discount_id: None,
         country_code: Some("US".to_string()),
+        success_url: None,
+        cancel_url: None,
     };
 
     let response = store.checkout(&request, Utc::now()).unwrap();
@@ -742,6 +746,8 @@ fn test_upgrade_with_percentage_discount() {
         coupon_code: None,
         discount_id: Some(discount_id),
         country_code: None,
+        success_url: None,
+        cancel_url: None,
     };
 
     let response = store.checkout(&request, Utc::now()).unwrap();
@@ -787,6 +793,8 @@ fn test_upgrade_with_flat_discount_and_tax() {
         coupon_code: None,
         discount_id: Some(discount_id),
         country_code: Some("IN".to_string()),
+        success_url: None,
+        cancel_url: None,
     };
 
     let response = store.checkout(&request, Utc::now()).unwrap();
@@ -816,6 +824,8 @@ fn test_upgrade_rejects_billing_cycle_under_12_months() {
         coupon_code: None,
         discount_id: None,
         country_code: None,
+        success_url: None,
+        cancel_url: None,
     };
 
     let result = store.checkout(&request, Utc::now());
@@ -863,6 +873,8 @@ fn test_checkout_rejects_stacking_discounts() {
         coupon_code: Some("SAVE10".to_string()),
         discount_id: Some(discount_id),
         country_code: None,
+        success_url: None,
+        cancel_url: None,
     };
 
     let result = store.checkout(&request, Utc::now());
@@ -882,6 +894,8 @@ fn test_no_tax_when_country_code_missing() {
         coupon_code: None,
         discount_id: None,
         country_code: None, // No country → 0% tax (Req 5.52)
+        success_url: None,
+        cancel_url: None,
     };
 
     let response = store.checkout(&request, Utc::now()).unwrap();
@@ -914,6 +928,8 @@ fn test_no_tax_when_country_not_in_tax_rates() {
         coupon_code: None,
         discount_id: None,
         country_code: Some("JP".to_string()),
+        success_url: None,
+        cancel_url: None,
     };
 
     let response = store.checkout(&request, Utc::now()).unwrap();
@@ -1141,6 +1157,8 @@ fn test_coupon_times_used_incremented_on_checkout() {
         coupon_code: Some("CHECKOUT10".to_string()),
         discount_id: None,
         country_code: None,
+        success_url: None,
+        cancel_url: None,
     };
 
     store.checkout(&request, Utc::now()).unwrap();
@@ -2191,6 +2209,8 @@ fn test_full_subscription_lifecycle() {
         coupon_code: Some("LIFECYCLE_REF".to_string()),
         discount_id: None,
         country_code: Some("US".to_string()),
+        success_url: None,
+        cancel_url: None,
     };
     let response = store.checkout(&request, Utc::now()).unwrap();
 

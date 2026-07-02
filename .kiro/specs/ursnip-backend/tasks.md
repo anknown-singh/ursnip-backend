@@ -492,6 +492,27 @@ A greenfield Rust/Axum monolithic backend with 22 database tables, 76 API endpoi
 - [x] 19. Final checkpoint - All tests pass, application starts and serves requests
   - Ensure all tests pass, ask the user if questions arise.
 
+- [x] 20. Frontend integration fixes (from landing site gap analysis)
+  - [x] 20.1 Add `workspace_id` to AuthResponse
+    - Add `workspace_id` field to `UserInfo` struct in `auth/service.rs`
+    - In `register()`: after creating the individual workspace, include its ID in the response
+    - In `login()`: query the user's individual workspace ID and include it in the response
+    - Update integration tests to verify `workspace_id` is present in register/login responses
+    - _Requirements: 7b_
+
+  - [x] 20.2 Add optional `first_name` and `last_name` to register endpoint
+    - Add optional `first_name` and `last_name` fields to `RegisterRequest` struct
+    - In `register()`: if provided, include in the INSERT INTO users query
+    - Update API documentation to reflect new optional fields
+    - _Requirements: 7a_
+
+  - [x] 20.3 Add `success_url` and `cancel_url` to checkout request
+    - Add optional `success_url` and `cancel_url` fields to the checkout request struct in `subscription/service.rs`
+    - Pass these URLs to the billing provider session creation (currently returns a placeholder URL)
+    - If not provided, fall back to a configurable default from AppConfig or omit from provider request
+    - Update API documentation
+    - _Requirements: 28a_
+
 ## Notes
 
 - Tasks marked with `*` are optional and can be skipped for faster MVP

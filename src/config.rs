@@ -53,6 +53,15 @@ pub struct AppConfig {
     pub ws_max_connections: usize,
     pub ai_max_concurrent_requests: usize,
     pub shutdown_timeout_secs: u64,
+    pub billing_success_url: Option<String>,
+    pub billing_cancel_url: Option<String>,
+
+    // Paddle
+    pub paddle_api_key: Option<String>,
+    pub paddle_environment: String,
+
+    // Frontend
+    pub frontend_url: String,
 }
 
 impl AppConfig {
@@ -252,6 +261,16 @@ impl AppConfig {
             .and_then(|v| v.parse::<u64>().ok())
             .unwrap_or(30);
 
+        let billing_success_url = env::var("BILLING_SUCCESS_URL").ok();
+        let billing_cancel_url = env::var("BILLING_CANCEL_URL").ok();
+
+        let paddle_api_key = env::var("PADDLE_API_KEY").ok();
+        let paddle_environment =
+            env::var("PADDLE_ENVIRONMENT").unwrap_or_else(|_| "sandbox".to_string());
+
+        let frontend_url =
+            env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:3000".to_string());
+
         Self {
             database_url,
             jwt_secret,
@@ -286,6 +305,11 @@ impl AppConfig {
             ws_max_connections,
             ai_max_concurrent_requests,
             shutdown_timeout_secs,
+            billing_success_url,
+            billing_cancel_url,
+            paddle_api_key,
+            paddle_environment,
+            frontend_url,
         }
     }
 }

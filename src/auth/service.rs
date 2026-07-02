@@ -77,6 +77,8 @@ pub struct RegisterRequest {
     pub password: String,
     pub client_type: ClientType,
     pub referral_code: Option<String>,
+    pub first_name: Option<String>,
+    pub last_name: Option<String>,
 }
 
 /// Login request payload.
@@ -102,6 +104,7 @@ pub struct UserInfo {
     pub email: String,
     pub role: Role,
     pub referral_code: String,
+    pub workspace_id: Uuid,
 }
 
 /// Refresh token request payload.
@@ -315,14 +318,16 @@ impl AuthService {
         // 5. Insert user with role=user (blocks admin creation)
         let user_id: Uuid = sqlx::query_scalar(
             r#"
-            INSERT INTO users (email, password_hash, role, status, referral_code)
-            VALUES ($1, $2, 'user', 'active', $3)
+            INSERT INTO users (email, password_hash, role, status, referral_code, first_name, last_name)
+            VALUES ($1, $2, 'user', 'active', $3, $4, $5)
             RETURNING id
             "#,
         )
         .bind(&req.email)
         .bind(&password_hash)
         .bind(&referral_code)
+        .bind(&req.first_name)
+        .bind(&req.last_name)
         .fetch_one(&mut *tx)
         .await
         .map_err(|e| {
@@ -424,6 +429,7 @@ impl AuthService {
                 email: req.email,
                 role: Role::User,
                 referral_code,
+                workspace_id,
             },
         })
     }
@@ -607,6 +613,17 @@ impl AuthService {
             _ => Tier::Free,
         };
 
+        // Look up the user's individual workspace ID
+        let workspace_id: Uuid = sqlx::query_scalar(
+            r#"
+            SELECT id FROM workspaces WHERE owner_id = $1 AND type = 'individual' LIMIT 1
+            "#,
+        )
+        .bind(user.id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|_| AppError::InternalError)?;
+
         // Generate access token JWT
         let claims = AccessTokenClaims {
             sub: user.id,
@@ -629,6 +646,7 @@ impl AuthService {
                 email: user.email,
                 role: user.role,
                 referral_code: user.referral_code,
+                workspace_id,
             },
         })
     }
@@ -778,6 +796,17 @@ impl AuthService {
 
         let access_token = encode_access_token(claims, &self.config.jwt_secret);
 
+        // Look up the user's individual workspace ID
+        let workspace_id: Uuid = sqlx::query_scalar(
+            r#"
+            SELECT id FROM workspaces WHERE owner_id = $1 AND type = 'individual' LIMIT 1
+            "#,
+        )
+        .bind(user.id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|_| AppError::InternalError)?;
+
         Ok(AuthResponse {
             access_token,
             refresh_token: new_raw_refresh_token,
@@ -786,6 +815,7 @@ impl AuthService {
                 email: user.email,
                 role: user.role,
                 referral_code: user.referral_code,
+                workspace_id,
             },
         })
     }
@@ -1361,6 +1391,7 @@ impl AuthService {
                 email: invite.email,
                 role: Role::Admin,
                 referral_code,
+                workspace_id,
             },
         })
     }
@@ -1588,7 +1619,7 @@ impl AuthService {
     }
 
     /// Fetch the current profile for a user.
-    async fn get_profile(&self, user_id: Uuid) -> Result<ProfileResponse, AppError> {
+    pub async fn get_profile(&self, user_id: Uuid) -> Result<ProfileResponse, AppError> {
         let profile = sqlx::query_as::<_, ProfileResponse>(
             r#"
             SELECT id, email, first_name, last_name, profile_picture_url, timezone, language, country_code, phone, role, referral_code, created_at, updated_at
@@ -1930,6 +1961,8 @@ mod property_tests {
             ws_max_connections: 100,
             ai_max_concurrent_requests: 10,
             shutdown_timeout_secs: 30,
+            billing_success_url: None,
+            billing_cancel_url: None,
         });
 
         AuthService {

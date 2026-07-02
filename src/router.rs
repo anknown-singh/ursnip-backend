@@ -57,7 +57,7 @@ use crate::admin::service::AdminService;
 use crate::auth::handlers::{
     create_admin_invite_handler, register_handler, login_handler, refresh_handler,
     logout_handler, forgot_password_handler, reset_password_handler, update_profile_handler,
-    change_email_handler, verify_email_change_handler, change_password_handler,
+    get_profile_handler, change_email_handler, verify_email_change_handler, change_password_handler,
     delete_account_handler, list_sessions_handler, revoke_session_handler,
     oauth_authorize_handler, oauth_callback_handler, register_via_invite_handler,
 };
@@ -138,12 +138,13 @@ pub fn build_router(state: AppState) -> Router {
         .route("/auth/oauth/:provider/authorize", get(oauth_authorize_handler))
         .route("/auth/oauth/:provider/callback", get(oauth_callback_handler))
         .layer(Extension(auth_service.clone()))
-        .layer(Extension(oauth_service));
+        .layer(Extension(oauth_service))
+        .layer(Extension(state.config.clone()));
 
     // ── Auth routes (protected — require valid JWT) ─────────────────────────
     let auth_protected_routes = Router::new()
         .route("/auth/logout", post(logout_handler))
-        .route("/auth/profile", patch(update_profile_handler))
+        .route("/auth/profile", patch(update_profile_handler).get(get_profile_handler))
         .route("/auth/change-email", post(change_email_handler))
         .route("/auth/change-password", post(change_password_handler))
         .route("/auth/account", delete(delete_account_handler))
@@ -233,7 +234,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/subscriptions/upgrade", post(upgrade_handler))
         .route("/subscriptions/checkout", post(checkout_handler))
         .route("/subscriptions/current", get(current_subscription_handler))
-        .layer(Extension(Arc::new(SubscriptionService::new(state.pool.clone()))));
+        .layer(Extension(Arc::new(SubscriptionService::new(state.pool.clone(), state.config.clone()))));
 
     // ── Team routes (web only) ──────────────────────────────────────────────
     let team_routes = Router::new()

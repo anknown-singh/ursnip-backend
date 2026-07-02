@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use chrono::{DateTime, Months, Utc};
 use rand::Rng;
 use rust_decimal::Decimal;
@@ -5,6 +7,7 @@ use sqlx::PgPool;
 use tracing::info;
 use uuid::Uuid;
 
+use crate::config::AppConfig;
 use crate::errors::AppError;
 use crate::models::common::{SubscriptionStatus, Tier};
 use crate::subscription::invoice::{compute_invoice, Invoice, InvoiceRequest};
@@ -87,6 +90,8 @@ pub struct CheckoutRequest {
     pub coupon_code: Option<String>,
     pub discount_id: Option<Uuid>,
     pub country_code: Option<String>,
+    pub success_url: Option<String>,
+    pub cancel_url: Option<String>,
 }
 
 /// Checkout response with URL and invoice breakdown.
@@ -113,12 +118,13 @@ pub struct CurrentSubscriptionResponse {
 /// Subscription service handling tier management and limit enforcement.
 pub struct SubscriptionService {
     pool: PgPool,
+    config: Arc<AppConfig>,
 }
 
 impl SubscriptionService {
     /// Create a new SubscriptionService instance.
-    pub fn new(pool: PgPool) -> Self {
-        Self { pool }
+    pub fn new(pool: PgPool, config: Arc<AppConfig>) -> Self {
+        Self { pool, config }
     }
 
     /// Create a free subscription for a workspace with status=active.
@@ -539,12 +545,35 @@ impl SubscriptionService {
 
         tx.commit().await.map_err(|_| AppError::InternalError)?;
 
-        // Step 7: Generate mock checkout URL (placeholder for billing provider integration)
-        let session_id = Uuid::new_v4();
-        let checkout_url = format!(
-            "https://checkout.billing-provider.example/session/{}",
-            session_id
-        );
+        // Step 7: Create Paddle checkout transaction
+        let paddle_params = crate::subscription::paddle::CreateTransactionParams {
+            tier: request.tier.clone(),
+            total_amount_cents: crate::subscription::paddle::dollars_to_cents(invoice.total_amount),
+            currency: invoice.currency.clone(),
+            workspace_id: request.workspace_id.to_string(),
+            success_url: request.success_url.or_else(|| self.config.billing_success_url.clone()),
+            country_code: request.country_code.clone(),
+        };
+
+        let paddle_result =
+            crate::subscription::paddle::create_checkout_transaction(&self.config, paddle_params)
+                .await?;
+
+        let mut checkout_url = paddle_result.checkout_url;
+
+        // Append cancel_url as a query parameter if provided
+        let cancel_url = request
+            .cancel_url
+            .or_else(|| self.config.billing_cancel_url.clone());
+        if let Some(ref url) = cancel_url {
+            let separator = if checkout_url.contains('?') { "&" } else { "?" };
+            checkout_url = format!(
+                "{}{}cancel_url={}",
+                checkout_url,
+                separator,
+                urlencoding::encode(url)
+            );
+        }
 
         Ok(CheckoutResponse {
             checkout_url,

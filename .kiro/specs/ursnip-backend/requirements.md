@@ -84,6 +84,10 @@ The desktop client already implements a Sync Manager with a WebSocket path and a
 
 7. WHEN a `POST /auth/register` request is received with a valid `email` and `password`, THE Backend SHALL hash the password with Argon2id and persist a new user record in the `users` table with `role = user`, returning an Access Token and Refresh Token pair with HTTP 201.
 
+7a. THE Backend SHALL accept optional `first_name` and `last_name` fields in the `POST /auth/register` request body and persist them on the user record if provided.
+
+7b. THE Backend SHALL include the user's Individual Workspace `workspace_id` in the authentication response (register and login) so that clients can use it for subscription and sync operations without a separate lookup.
+
 8. IF a `POST /auth/register` request arrives with an `email` that already exists in the `users` table, THEN THE Backend SHALL return HTTP 409 with a machine-readable error code `EMAIL_ALREADY_REGISTERED`.
 
 9. IF a `POST /auth/register` request arrives with a `password` shorter than 8 characters, THEN THE Backend SHALL return HTTP 422 with error code `PASSWORD_TOO_SHORT` without creating any record.
@@ -636,6 +640,8 @@ The desktop client already implements a Sync Manager with a WebSocket path and a
 27. THE Backend SHALL store the subscription period as `period_start` (UTC timestamp) and `period_end` (UTC timestamp, exactly 12 months after `period_start`) in the `subscriptions` table.
 
 28. WHEN an authenticated User sends `POST /subscriptions/checkout` with `tier` (`pro` or `teams`), `workspace_id`, and optional `coupon_code`, THE Backend SHALL validate the request, compute the invoice, initiate a checkout session with the Billing Provider, and return the checkout URL with HTTP 200.
+
+28a. THE Backend SHALL accept optional `success_url` and `cancel_url` fields in the checkout request body and pass them to the Billing Provider session creation so the user is redirected to the appropriate frontend page after payment completion or cancellation.
 
 29. WHEN a billing webhook event signals successful payment renewal, THE Backend SHALL extend `period_end` by 12 months from the current `period_end`, update `status` to `active`, and persist the change atomically.
 
